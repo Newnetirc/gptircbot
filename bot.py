@@ -40,21 +40,27 @@ async def handle_messages():
         if text.find('PING') != -1:
             irc.send(bytes('PONG ' + text.split()[1] + '\r\n', "UTF-8"))
 
-        if "PRIVMSG" in text and botnick in text:
-            username, prompt = parse_message(text)
-            context = user_contexts.get(username, [])
+        if "PRIVMSG" in text:
+            username, message = parse_message(text)
+            if username and message:
+                if message.startswith('!'):
+                    await handle_command(username, message)
+                else:
+                    await handle_conversation(username, message, user_contexts)
 
-            context.append({"role": "user", "content": prompt})
-            if len(context) > max_history_length:
-                context.pop(0)
+async def handle_conversation(username, message, user_contexts):
+    context = user_contexts.get(username, [])
+    context.append({"role": "user", "content": message})
+    if len(context) > 10:  # Adjust history length as needed
+        context.pop(0)
 
-            response = await get_openai_response(context)
-            reply = response['choices'][0]['message']['content']
-            print(reply)
+    response = await get_openai_response(context)
+    reply = response['choices'][0]['message']['content']
+    print(reply)
 
-            for chunk in textwrap.wrap(reply, 200):
-                irc.send(bytes("PRIVMSG "+ channel +" :"+ chunk +"\n", "UTF-8"))
-            user_contexts[username] = context
+    for chunk in textwrap.wrap(reply, 200):
+        irc.send(bytes("PRIVMSG "+ channel +" :"+ chunk +"\n", "UTF-8"))
+    user_contexts[username] = context
 
 async def get_openai_response(context):
     return openai.ChatCompletion.create(
@@ -68,8 +74,21 @@ async def get_openai_response(context):
     )
 
 def parse_message(text):
-    # Implement message parsing logic here
-    pass
+    if botnick in text:
+        parts = text.split('!')
+        username = parts[0].split(':')[1]
+        message = parts[1].split(':')[1]
+        return username, message
+    return None, None
+
+async def handle_command(username, command):
+    if command.startswith('!help'):
+        send_message(f"Hello {username}, I'm a GPT-powered IRC bot. Ask me anything!")
+    # Add more commands as needed
+
+def send_message(message):
+    for chunk in textwrap.wrap(message, 200):
+        irc.send(bytes("PRIVMSG "+ channel +" :"+ chunk +"\n", "UTF-8"))
 
 # Main
 async def main():
