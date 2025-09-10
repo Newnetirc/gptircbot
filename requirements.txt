@@ -1,0 +1,8 @@
+# Python 3.11+
+openai>=1.42.0
+pydantic>=2.8.2
+pydantic-settings>=2.4.0
+python-dotenv>=1.0.1
+structlog>=24.1.0
+uvloop>=0.20.0; sys_platform != 'win32'
+backoff>=2.2.1
